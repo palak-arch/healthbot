@@ -1,0 +1,17 @@
+{
+  "name": "healthbot-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.21.0",
+    "express-rate-limit": "^8.6.2",
+    "mysql2": "^3.11.0",
+    "zod": "^3.25.76"
+  }
+}
