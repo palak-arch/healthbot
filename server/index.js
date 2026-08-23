@@ -11,6 +11,13 @@ if (pathExistsSync(envPath)) {
   config({ path: envPath });
 }
 
+// DEBUG: print all env vars to help Railway debugging
+console.log("DEBUG env keys:", Object.keys(process.env).filter(k => !k.startsWith("npm") && !k.startsWith("NODE")).join(", "));
+console.log("DEBUG DB_HOST:", process.env.DB_HOST);
+console.log("DEBUG GEMINI_API_KEY:", process.env.GEMINI_API_KEY ? "SET" : "NOT SET");
+console.log("DEBUG MYSQLHOST:", process.env.MYSQLHOST);
+console.log("DEBUG MYSQL_ROOT_PASSWORD:", process.env.MYSQL_ROOT_PASSWORD ? "SET" : "NOT SET");
+
 import express from "express";
 import cors from "cors";
 import { existsSync, readFileSync } from "fs";
