@@ -9,8 +9,10 @@ config({ path: join(__dirname, ".env") });
 
 import express from "express";
 import cors from "cors";
+import { existsSync, readFileSync } from "fs";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import pool from "./db.js";
+import { initSchema } from "./init-db.js";
 import {
   validateBody,
   validateParams,
@@ -69,7 +71,18 @@ const healthLimiter = rateLimit({
 });
 
 // ─── Global Middleware ────────────────────────────────────────
-app.use(cors({ origin: ["http://localhost:5173", "http://localhost:8080"] }));
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "http://localhost:8080",
+  process.env.CORS_ORIGIN,
+].filter(Boolean);
+app.use(cors({ origin: ALLOWED_ORIGINS }));
+
+// Serve built frontend in production
+const distPath = join(__dirname, "..", "dist");
+if (existsSync(distPath)) {
+  app.use(express.static(distPath));
+}
 app.use(express.json({ limit: "10kb" })); // Limit body size to prevent abuse
 app.use(globalLimiter);
 
@@ -290,6 +303,17 @@ function getFallbackResponse(message) {
 }
 
 // ─── Global Error Handler ─────────────────────────────────────
+// Catch-all: serve index.html for SPA routing in production
+app.get("*", (req, res) => {
+  const indexPath = join(distPath, "index.html");
+  if (existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).json({ error: "Not found" });
+  }
+});
+
+// Global Error Handler
 app.use((err, req, res, _next) => {
   console.error("Unhandled error:", err);
   res.status(500).json({ error: "Internal server error" });
@@ -297,10 +321,14 @@ app.use((err, req, res, _next) => {
 
 // ─── Start Server ─────────────────────────────────────────────
 
+// Initialize DB schema then start server
+await initSchema(pool);
+
 app.listen(PORT, () => {
   console.log(`🚀 HealthBot API server running on http://localhost:${PORT}`);
   console.log(`   Gemini API key: ${process.env.GEMINI_API_KEY ? "✅ configured" : "⚠️  not set (using fallbacks)"}`);
   console.log(`   MySQL: ${process.env.DB_HOST || "localhost"}:${process.env.DB_PORT || 3306}/${process.env.DB_NAME || "healthbot"}`);
   console.log(`   Rate limiting: ✅ active (chat: 10/min, global: 200/15min)`);
   console.log(`   Zod validation: ✅ active on all routes`);
+  console.log(`   Frontend: ${existsSync(distPath) ? "✅ served from dist/" : "⚠️  not built (run npm run build)"}`);
 });

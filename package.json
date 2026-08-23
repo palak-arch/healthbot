@@ -11,7 +11,9 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "cd server && npm start"
+    "server": "cd server && npm start",
+    "start": "cd server && node index.js",
+    "railway:build": "npm install && cd server && npm install"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
