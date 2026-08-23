@@ -5,7 +5,11 @@ const __dirname = dirname(__filename);
 
 // Load .env before anything else reads process.env
 import { config } from "dotenv";
-config({ path: join(__dirname, ".env") });
+import { existsSync as pathExistsSync } from "fs";
+const envPath = join(__dirname, ".env");
+if (pathExistsSync(envPath)) {
+  config({ path: envPath });
+}
 
 import express from "express";
 import cors from "cors";

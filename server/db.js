@@ -5,11 +5,11 @@ let _pool = null;
 function getPool() {
   if (!_pool) {
     _pool = mysql.createPool({
-      host: process.env.DB_HOST || "localhost",
-      port: parseInt(process.env.DB_PORT || "3306"),
-      user: process.env.DB_USER || "root",
-      password: process.env.DB_PASSWORD || "",
-      database: process.env.DB_NAME || "healthbot",
+      host: process.env.DB_HOST || process.env.MYSQLHOST || "localhost",
+      port: parseInt(process.env.DB_PORT || process.env.MYSQLPORT || "3306"),
+      user: process.env.DB_USER || process.env.MYSQLUSER || "root",
+      password: process.env.DB_PASSWORD || process.env.MYSQL_ROOT_PASSWORD || process.env.MYSQLPASSWORD || "",
+      database: process.env.DB_NAME || process.env.MYSQLDATABASE || "healthbot",
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
