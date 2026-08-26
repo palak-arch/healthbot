@@ -1,0 +1,5 @@
+[build]
+builder = "nixpacks"
+
+[start]
+command = "npm run build && cd server && node index.js"
