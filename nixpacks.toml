@@ -1,11 +1,7 @@
 # Nixpacks configuration for Railway
-# Install all dependencies including devDependencies for Vite build
-
-[phases.setup]
-nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["npm install"]
+cmds = ["npm install --include=dev"]
 
 [start]
 cmd = "npm run build && cd server && node index.js"
