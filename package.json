@@ -13,7 +13,7 @@
     "preview": "vite preview",
     "server": "cd server && npm start",
     "start": "cd server && node index.js",
-    "railway:build": "npm install && cd server && npm install"
+    "railway:build": "npm install && npm run build && cd server && npm install"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

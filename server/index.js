@@ -80,7 +80,17 @@ const ALLOWED_ORIGINS = [
   "http://localhost:8080",
   process.env.CORS_ORIGIN,
 ].filter(Boolean);
-app.use(cors({ origin: ALLOWED_ORIGINS }));
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    // Allow Railway domains and configured origins
+    if (ALLOWED_ORIGINS.includes(origin) || origin.includes('.up.railway.app')) {
+      return callback(null, true);
+    }
+    callback(null, true); // Allow all origins in production
+  },
+}));
 
 // Serve built frontend in production
 const distPath = join(__dirname, "..", "dist");
