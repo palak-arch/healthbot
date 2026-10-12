@@ -65,6 +65,66 @@ export const VaccinationIdParamSchema = z.object({
   id: z.string().min(1, "Record ID is required"),
 });
 
+// ─── Patient Account Schemas ─────────────────────────────────
+
+export const PatientSignupSchema = z.object({
+  name: sanitizedString(80).refine((v) => v.trim().length >= 2, "Name must be at least 2 characters"),
+  phone: sanitizedString(15).refine(
+    (v) => /^[0-9+\-\s]{7,15}$/.test(v.trim()),
+    "Enter a valid phone number"
+  ),
+  password: z.string().min(6, "Password must be at least 6 characters").max(72),
+});
+
+export const PatientLoginSchema = z.object({
+  phone: sanitizedString(15),
+  password: z.string().min(1).max(72),
+});
+
+// ─── Hospital Record Schemas ─────────────────────────────────
+
+export const CreateHospitalSchema = z.object({
+  id: z.string().uuid("Invalid ID format").optional(),
+  name: sanitizedString(255),
+  city: sanitizedString(120),
+  address: sanitizedString(500).optional().nullable(),
+  phone: sanitizedString(40).optional().nullable(),
+  lat: z.number().min(-90).max(90).optional().nullable(),
+  lng: z.number().min(-180).max(180).optional().nullable(),
+  services: z.array(sanitizedString(120)).max(30).optional().nullable(),
+  avgTreatmentCostInr: z.number().int().min(0).max(100000000).optional().nullable(),
+  beds: z.number().int().min(0).max(10000).optional().nullable(),
+  annualPatients: z.number().int().min(0).max(100000000).optional().nullable(),
+  accreditation: sanitizedString(255).optional().nullable(),
+  status: z.enum(["pending_review", "approved", "rejected"]).optional().default("pending_review"),
+  source: sanitizedString(60).optional().default("admin_upload"),
+  submittedBy: sanitizedString(120).optional().default("admin"),
+});
+
+export const HospitalReviewSchema = z.object({
+  status: z.enum(["pending_review", "approved", "rejected"]),
+  reviewNote: sanitizedString(1000).optional().nullable(),
+});
+
+// ─── Patient Record Schemas ──────────────────────────────────
+
+export const CreatePatientSchema = z.object({
+  id: z.string().uuid("Invalid ID format").optional(),
+  fullName: sanitizedString(120),
+  age: z.number().int().min(0).max(130),
+  gender: z.enum(["male", "female", "other"]).optional().nullable(),
+  bloodGroup: z
+    .enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"])
+    .optional()
+    .nullable(),
+  phone: sanitizedString(40).optional().nullable(),
+  conditions: z.array(sanitizedString(200)).max(20).optional().default([]),
+  medications: z.array(sanitizedString(200)).max(30).optional().default([]),
+  allergies: z.array(sanitizedString(200)).max(20).optional().default([]),
+  emergencyContact: sanitizedString(160).optional().nullable(),
+  notes: sanitizedString(2000).optional().nullable(),
+});
+
 // ─── Middleware ────────────────────────────────────────────────
 
 /**

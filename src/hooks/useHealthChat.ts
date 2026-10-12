@@ -1,6 +1,8 @@
 import { useState, useCallback } from "react";
 import { sendChatMessage } from "@/lib/api";
 
+const FALLBACK = "Hey, I'm having a connection issue right now. Hang tight!\n\nHere's what you can do:\n\n1. Try sending your message again in a few seconds\n2. If it's urgent, give a health helpline a call\n3. In the meantime: drink water, eat well, and keep your vaccines up to date";
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
@@ -40,7 +42,7 @@ export function useHealthChat() {
       const fallbackMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: "I'm having trouble connecting right now. Please try again later or consult a healthcare professional for immediate concerns.",
+        content: FALLBACK,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, fallbackMessage]);

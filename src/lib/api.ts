@@ -1,9 +1,22 @@
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
+/** Stable per-tab session id so the server can keep conversation memory */
+function sessionId(): string {
+  let id = sessionStorage.getItem("healthbot_session");
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem("healthbot_session", id);
+  }
+  return id;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
   const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-session-id": sessionId(),
+    },
     ...options,
   });
 
@@ -32,6 +45,24 @@ export async function sendChatMessage(message: string): Promise<ChatApiResponse>
   return request<ChatApiResponse>("/api/chat", {
     method: "POST",
     body: JSON.stringify({ message }),
+  });
+}
+
+// ─── NL Search API ────────────────────────────────────────────
+
+export interface SearchParseResult {
+  disease: string | null;
+  location: string | null;
+  budgetInr: number | null;
+  priority: string | null;
+  source: "gemini" | "keyword";
+}
+
+/** Convert a natural-language query into structured search filters via AI */
+export async function sendSearchParse(query: string): Promise<SearchParseResult> {
+  return request<SearchParseResult>("/api/search/parse", {
+    method: "POST",
+    body: JSON.stringify({ message: query }),
   });
 }
 

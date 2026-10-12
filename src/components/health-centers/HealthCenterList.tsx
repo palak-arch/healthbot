@@ -2,12 +2,14 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Star, Phone, Clock, MapPin } from "lucide-react";
+import { Star, Phone, Clock, MapPin, GitCompareArrows, IndianRupee, Database, Route } from "lucide-react";
 import {
   type HealthCenter,
   type CenterType,
   CENTER_TYPE_CONFIG,
+  getDirectionsUrl,
 } from "@/lib/healthCenters";
+import type { Disease } from "@/lib/diseases";
 
 interface HealthCenterListProps {
   centers: HealthCenter[];
@@ -15,6 +17,10 @@ interface HealthCenterListProps {
   onSelectCenter: (center: HealthCenter) => void;
   filter: CenterType | "all";
   onFilterChange: (filter: CenterType | "all") => void;
+  bestDisease?: Disease | null;
+  compareIds?: string[];
+  onToggleCompare?: (id: string) => void;
+  userLocation?: [number, number] | null;
 }
 
 const HealthCenterList = ({
@@ -23,6 +29,10 @@ const HealthCenterList = ({
   onSelectCenter,
   filter,
   onFilterChange,
+  bestDisease,
+  compareIds = [],
+  onToggleCompare,
+  userLocation,
 }: HealthCenterListProps) => {
   const filteredCenters =
     filter === "all" ? centers : centers.filter((c) => c.type === filter);
@@ -72,7 +82,7 @@ const HealthCenterList = ({
               No centers found with this filter.
             </div>
           ) : (
-            filteredCenters.map((center) => {
+            filteredCenters.map((center, index) => {
               const config = CENTER_TYPE_CONFIG[center.type];
               const isSelected = selectedCenter?.id === center.id;
 
@@ -87,6 +97,11 @@ const HealthCenterList = ({
                   onClick={() => onSelectCenter(center)}
                 >
                   <CardContent className="p-3">
+                    {bestDisease && index < 3 && (
+                      <Badge className="mb-2 bg-primary text-primary-foreground">
+                        Best for {bestDisease.name} — #{index + 1}
+                      </Badge>
+                    )}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
@@ -95,7 +110,8 @@ const HealthCenterList = ({
                         </div>
 
                         <p className="mt-1 text-xs text-muted-foreground truncate">
-                          {center.address}
+                          <MapPin className="mr-0.5 inline h-3 w-3" />
+                          {center.city} — {center.address}
                         </p>
 
                         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -104,7 +120,7 @@ const HealthCenterList = ({
                             {center.rating}
                           </span>
                           {center.distance && (
-                            <span className="font-medium text-primary">{center.distance}</span>
+                            <span className="font-medium text-primary">{center.distance} away</span>
                           )}
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
@@ -125,7 +141,20 @@ const HealthCenterList = ({
                           </div>
                         )}
 
-                        <div className="mt-2 flex flex-wrap gap-1">
+                        <div className="mt-2 flex flex-wrap items-center gap-1">
+                          {center.avgTreatmentCostInr && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+                              <IndianRupee className="h-2.5 w-2.5" />
+                              {center.avgTreatmentCostInr.toLocaleString("en-IN")}
+                              <span className="text-amber-600" title="Simulated data">·sim</span>
+                            </Badge>
+                          )}
+                          {center.source === "osm" && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+                              <Database className="h-2.5 w-2.5" />
+                              OSM live
+                            </Badge>
+                          )}
                           {center.services.slice(0, 3).map((s) => (
                             <Badge key={s} variant="secondary" className="text-[10px] px-1.5 py-0">
                               {s}
@@ -135,6 +164,35 @@ const HealthCenterList = ({
                             <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                               +{center.services.length - 3} more
                             </Badge>
+                          )}
+                        </div>
+
+                        <div className="mt-2 flex gap-1.5">
+                          <a
+                            href={getDirectionsUrl(center, userLocation)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground transition-all hover:bg-primary/90"
+                          >
+                            <Route className="h-3 w-3" />
+                            Directions
+                          </a>
+                          {onToggleCompare && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleCompare(center.id);
+                              }}
+                              className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-medium transition-all ${
+                                compareIds.includes(center.id)
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border text-muted-foreground hover:border-primary/50"
+                              }`}
+                            >
+                              <GitCompareArrows className="h-3 w-3" />
+                              {compareIds.includes(center.id) ? "Added to compare" : "Compare"}
+                            </button>
                           )}
                         </div>
                       </div>

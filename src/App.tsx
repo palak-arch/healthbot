@@ -7,6 +7,9 @@ const Index = lazy(() => import("@/pages/Index"));
 const Chat = lazy(() => import("@/pages/Chat"));
 const Vaccinations = lazy(() => import("@/pages/Vaccinations"));
 const HealthCenters = lazy(() => import("@/pages/HealthCenters"));
+const Admin = lazy(() => import("@/pages/Admin"));
+const Diseases = lazy(() => import("@/pages/Diseases"));
+const Patient = lazy(() => import("@/pages/Patient"));
 
 function LoadingSpinner() {
   return (
@@ -26,6 +29,9 @@ function App() {
             <Route path="/chat" element={<Chat />} />
             <Route path="/vaccinations" element={<Vaccinations />} />
             <Route path="/health-centers" element={<HealthCenters />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/diseases" element={<Diseases />} />
+            <Route path="/patient" element={<Patient />} />
           </Routes>
         </Suspense>
       </Router>

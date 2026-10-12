@@ -3,11 +3,12 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Badge } from "@/components/ui/badge";
-import { Phone, Clock, Star, Navigation } from "lucide-react";
+import { Phone, Clock, Star, Navigation, Route } from "lucide-react";
 import {
   type HealthCenter,
   CENTER_TYPE_CONFIG,
   DEFAULT_CENTER,
+  getDirectionsUrl,
 } from "@/lib/healthCenters";
 
 // Fix Leaflet default marker icons in Vite/webpack environments
@@ -82,7 +83,7 @@ function FlyToCenter({ center }: { center: HealthCenter | null }) {
 
   useEffect(() => {
     if (center) {
-      map.flyTo([center.lat, center.lng], 16, { duration: 1 });
+      map.flyTo([center.lat, center.lng], 12, { duration: 1 });
     }
   }, [center, map]);
 
@@ -132,14 +133,17 @@ const MapView = ({ centers, selectedCenter, onSelectCenter, userLocation }: MapV
     <div className="relative h-full w-full rounded-xl overflow-hidden border">
       <MapContainer
         center={center}
-        zoom={13}
+        zoom={5}
         scrollWheelZoom={true}
         className="h-full w-full"
         zoomControl={true}
       >
+        {/* Free OpenStreetMap tiles — no API key needed.
+            (CARTO basemaps started requiring an API key, shown as
+            "API KEY REQUIRED" watermarks — don't switch back.) */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
         {/* User location marker */}
@@ -199,6 +203,17 @@ const MapView = ({ centers, selectedCenter, onSelectCenter, userLocation }: MapV
                       </a>
                     </div>
                   )}
+
+                  <a
+                    href={getDirectionsUrl(c, userLocation)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    <Route className="h-3.5 w-3.5" />
+                    Get directions
+                  </a>
 
                   <div className="flex flex-wrap gap-1 pt-1">
                     {c.services.map((s) => (

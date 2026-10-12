@@ -28,11 +28,17 @@ const Navbar = () => {
           <a href="#about" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             About
           </a>
+          <Link to="/diseases" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Disease Library
+          </Link>
+          <Link to="/patient" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Patient Info
+          </Link>
           <Link to="/vaccinations" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             Vaccinations
           </Link>
           <Link to="/health-centers" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            Health Centers
+            Find Hospitals
           </Link>
           <ThemeToggle />
           <Link to="/chat">
@@ -77,6 +83,20 @@ const Navbar = () => {
             About
           </a>
           <Link
+            to="/diseases"
+            className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+            onClick={() => setIsOpen(false)}
+          >
+            Disease Library
+          </Link>
+          <Link
+            to="/patient"
+            className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+            onClick={() => setIsOpen(false)}
+          >
+            Patient Info
+          </Link>
+          <Link
             to="/vaccinations"
             className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
             onClick={() => setIsOpen(false)}
@@ -88,7 +108,7 @@ const Navbar = () => {
             className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
             onClick={() => setIsOpen(false)}
           >
-            Health Centers
+            Find Hospitals
           </Link>
           <div className="flex items-center py-2">
             <ThemeToggle showLabel />

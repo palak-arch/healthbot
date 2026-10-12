@@ -57,6 +57,31 @@ export async function initSchema(pool) {
           INDEX idx_scheduled_date (scheduled_date)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS hospital_records (
+          id VARCHAR(36) PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          city VARCHAR(120) NOT NULL,
+          address VARCHAR(500) DEFAULT NULL,
+          phone VARCHAR(40) DEFAULT NULL,
+          lat DECIMAL(10,7) DEFAULT NULL,
+          lng DECIMAL(10,7) DEFAULT NULL,
+          services JSON DEFAULT NULL,
+          avg_treatment_cost_inr INT DEFAULT NULL,
+          beds INT DEFAULT NULL,
+          annual_patients INT DEFAULT NULL,
+          accreditation VARCHAR(255) DEFAULT NULL,
+          status ENUM('pending_review', 'approved', 'rejected') DEFAULT 'pending_review',
+          source VARCHAR(60) DEFAULT 'admin_upload',
+          submitted_by VARCHAR(120) DEFAULT 'admin',
+          review_note TEXT DEFAULT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_hosp_city (city),
+          INDEX idx_hosp_status (status),
+          INDEX idx_hosp_name (name)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
       console.log("✅ Database schema created manually");
       conn.release();
       return;
