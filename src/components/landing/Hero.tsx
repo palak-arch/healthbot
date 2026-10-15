@@ -14,7 +14,7 @@ const Hero = () => {
 
       <div className="container relative mx-auto px-4 py-24 md:py-32">
         <div className="mx-auto max-w-3xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-primary/5 px-4 py-1.5 text-sm text-primary">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-primary/5 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
             <ShieldCheck className="h-4 w-4" />
             <span>AI-Powered Health Guidance</span>
           </div>
@@ -47,15 +47,15 @@ const Hero = () => {
           {/* Trust indicators */}
           <div className="mt-16 grid grid-cols-3 gap-8 border-t pt-8">
             <div>
-              <p className="font-display text-2xl font-bold text-primary">24/7</p>
+              <p className="font-display text-2xl font-bold tabular-nums text-primary">24/7</p>
               <p className="text-sm text-muted-foreground">Always Available</p>
             </div>
             <div>
-              <p className="font-display text-2xl font-bold text-primary">Free</p>
+              <p className="font-display text-2xl font-bold tabular-nums text-primary">Free</p>
               <p className="text-sm text-muted-foreground">No Sign-up Required</p>
             </div>
             <div>
-              <p className="font-display text-2xl font-bold text-primary">AI</p>
+              <p className="font-display text-2xl font-bold tabular-nums text-primary">AI</p>
               <p className="text-sm text-muted-foreground">Powered by Gemini</p>
             </div>
           </div>

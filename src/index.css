@@ -10,15 +10,17 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 142 72% 29%;
+    --primary: 217 85% 45%;
     --primary-foreground: 355.7 100% 97.3%;
-    --primary-glow: 142 72% 29%;
+    --primary-glow: 217 85% 45%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
+    --highlight: 180 65% 35%;
+    --highlight-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --success: 142 72% 29%;
@@ -29,12 +31,12 @@
     --danger-foreground: 355.7 100% 97.3%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 142 72% 29%;
+    --ring: 217 85% 45%;
     --radius: 0.75rem;
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    --shadow-glow: 0 0 15px rgb(142 72% 29% / 0.3);
+    --shadow-glow: 0 0 15px rgb(217 85% 45% / 0.3);
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -52,15 +54,17 @@
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 142 72% 45%;
+    --primary: 217 85% 60%;
     --primary-foreground: 355.7 100% 97.3%;
-    --primary-glow: 142 72% 45%;
+    --primary-glow: 217 85% 60%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
+    --highlight: 180 65% 45%;
+    --highlight-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     --success: 142 72% 45%;
@@ -71,11 +75,11 @@
     --danger-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 142 72% 45%;
+    --ring: 217 85% 60%;
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
-    --shadow-glow: 0 0 20px rgb(142 72% 45% / 0.4);
+    --shadow-glow: 0 0 20px rgb(217 85% 60% / 0.4);
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -94,6 +98,13 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.02em;
+    text-wrap: balance;
   }
 }
 
@@ -107,4 +118,14 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: "Space Grotesk", system-ui, sans-serif;
+}
+
+/*
+ * Refined icon weight, applied outside @layer on purpose: Tailwind only emits
+ * class-selector rules from @layer when the class appears as a content
+ * candidate, and "lucide" is never scanned as one, so the rule was dropped.
+ * No stroke-* utilities exist in this codebase, so the plain rule is safe.
+ */
+.lucide {
+  stroke-width: 1.75;
 }
