@@ -172,6 +172,23 @@ const Vaccinations = () => {
             </Card>
           )}
 
+          {/*
+            Doses and timings come from the static data in
+            src/lib/vaccinationSchedules.ts — never from model output — and are
+            labelled so nobody treats them as their own child's record.
+          */}
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+            <p className="text-sm font-medium">Reference schedule, not a prescription</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              These doses and timings are fixed reference data compiled from public
+              immunisation guidance. National and state programmes differ, and some
+              vaccines listed here (HPV, varicella, MenACWY, shingles, Tdap timing) follow
+              private-practice recommendations rather than the free government schedule.
+              Confirm what your child is due for with your health worker or the
+              immunisation card — do not use this page as a vaccination record.
+            </p>
+          </div>
+
           {/* Age Group Tabs */}
           <div className="flex gap-2 overflow-x-auto pb-1">
             {vaccinationSchedules.map((schedule) => (

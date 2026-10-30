@@ -1,7 +1,9 @@
 import React, { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ChatMessage from "./ChatMessage";
+import { EmergencyInlineAlert } from "./EmergencyBar";
 import { Bot } from "lucide-react";
+import { isEmergency } from "@/lib/emergency";
 import type { Message } from "@/hooks/useHealthChat";
 
 interface ChatWindowProps {
@@ -69,17 +71,20 @@ const ChatWindow = ({
     <ScrollArea className="flex-1 p-4">
       <div className="mx-auto max-w-3xl space-y-4">
         {messages.map((message) => (
-          <ChatMessage
-            key={message.id}
-            message={message}
-            isSpeaking={message.role === "assistant" && speakingId === message.id}
-            onToggleSpeak={
-              message.role === "assistant" && onToggleSpeak
-                ? () => onToggleSpeak(message.content, message.id)
-                : undefined
-            }
-            ttsSupported={ttsSupported}
-          />
+          <div key={message.id} className="space-y-2">
+            {/* Flag emergencies inline so the warning sits next to the message */}
+            {message.role === "user" && isEmergency(message.content) && <EmergencyInlineAlert />}
+            <ChatMessage
+              message={message}
+              isSpeaking={message.role === "assistant" && speakingId === message.id}
+              onToggleSpeak={
+                message.role === "assistant" && onToggleSpeak
+                  ? () => onToggleSpeak(message.content, message.id)
+                  : undefined
+              }
+              ttsSupported={ttsSupported}
+            />
+          </div>
         ))}
 
         {isLoading && (

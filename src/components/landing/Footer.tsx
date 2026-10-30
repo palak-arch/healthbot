@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { Heart } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
@@ -27,6 +28,9 @@ const Footer = () => {
               <li><a href="#features" className="hover:text-foreground transition-colors">Features</a></li>
               <li><a href="#about" className="hover:text-foreground transition-colors">About</a></li>
               <li><a href="https://www.who.int" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">WHO Resources</a></li>
+              <li><Link to="/privacy" className="hover:text-foreground transition-colors">Privacy policy</Link></li>
+              <li><Link to="/terms" className="hover:text-foreground transition-colors">Terms of use</Link></li>
+              <li><Link to="/disclaimer" className="hover:text-foreground transition-colors">Medical disclaimer</Link></li>
             </ul>
           </div>
 
@@ -34,8 +38,12 @@ const Footer = () => {
           <div>
             <h4 className="font-display font-semibold">Disclaimer</h4>
             <p className="mt-3 text-sm text-muted-foreground">
-              This tool provides general health information and is not a substitute for professional medical advice.
-              Always consult a healthcare provider for personal medical concerns.
+              HealthBot provides general health information. It is not a medical service, does not
+              diagnose, and is not a substitute for professional medical advice. Always consult a
+              healthcare provider for personal medical concerns.
+            </p>
+            <p className="mt-2 text-sm font-medium">
+              Emergency? Call 108 (ambulance) or 112 (all emergencies).
             </p>
           </div>
         </div>

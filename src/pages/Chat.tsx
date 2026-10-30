@@ -4,12 +4,15 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Trash2, Heart, Volume2, VolumeX } from "lucide-react";
 import ChatWindow from "@/components/chat/ChatWindow";
 import ChatInput from "@/components/chat/ChatInput";
+import EmergencyBar from "@/components/chat/EmergencyBar";
+import SafetyNotice, { useSafetyNotice } from "@/components/chat/SafetyNotice";
 import ThemeToggle from "@/components/ui/theme-toggle";
 import { useHealthChat } from "@/hooks/useHealthChat";
 import { useTextToSpeech, useAutoSpeakEffect } from "@/hooks/useTextToSpeech";
 
 const Chat = () => {
   const { messages, isLoading, sendMessage, clearMessages } = useHealthChat();
+  const { acknowledged, acknowledge } = useSafetyNotice();
   const {
     isSupported: ttsSupported,
     autoSpeak,
@@ -102,17 +105,28 @@ const Chat = () => {
         </div>
       </header>
 
-      {/* Chat Area */}
-      <ChatWindow
-        messages={messages}
-        isLoading={isLoading}
-        speakingId={speakingId}
-        onToggleSpeak={speakMessage}
-        ttsSupported={ttsSupported}
-      />
+      {/*
+        Always visible, regardless of what the user typed. Emergency numbers must
+        never depend on keyword matching.
+      */}
+      <EmergencyBar />
 
-      {/* Input */}
-      <ChatInput onSend={sendMessage} isLoading={isLoading} />
+      {acknowledged ? (
+        <>
+          <ChatWindow
+            messages={messages}
+            isLoading={isLoading}
+            speakingId={speakingId}
+            onToggleSpeak={speakMessage}
+            ttsSupported={ttsSupported}
+          />
+          <ChatInput onSend={sendMessage} isLoading={isLoading} />
+        </>
+      ) : (
+        <div className="flex-1 overflow-y-auto bg-muted/30">
+          <SafetyNotice onAcknowledge={acknowledge} />
+        </div>
+      )}
     </div>
   );
 };

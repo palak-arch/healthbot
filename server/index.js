@@ -40,8 +40,23 @@ const PORT = process.env.PORT || 3001;
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET =
-  process.env.PATIENT_JWT_SECRET || process.env.ADMIN_KEY || "healthbot-dev-secret-change-me";
+// A hardcoded fallback secret lets anyone forge a patient token and read
+// another person's health records, so production refuses to start without one.
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+const JWT_SECRET = (() => {
+  const secret = process.env.PATIENT_JWT_SECRET;
+  if (secret && secret.length >= 32) return secret;
+  if (IS_PRODUCTION) {
+    throw new Error(
+      "PATIENT_JWT_SECRET is missing or shorter than 32 characters. Refusing to start in production: a guessable secret allows patient accounts to be forged."
+    );
+  }
+  console.warn(
+    "⚠️  PATIENT_JWT_SECRET not set (or shorter than 32 chars) — using an ephemeral development secret. Set it before deploying."
+  );
+  return crypto.randomUUID() + crypto.randomUUID();
+})();
 const PATIENT_TOKEN_TTL = "30d";
 
 function signPatientToken(user) {
@@ -233,6 +248,52 @@ function isOffTopicChecked(message) {
   return isOffTopic(message) && !HEALTH_OVERRIDE.test(message);
 }
 
+// ─── Emergency backstop (server) ─────────────────────────────
+// The authoritative detector is src/lib/emergency.ts, which runs in the browser
+// before any request is sent. This smaller list is a backstop for direct API
+// callers and for clients that skip the check. When it fires, the model is not
+// consulted at all — the fixed reply goes back verbatim.
+// Keep the wording in sync with EMERGENCY_REPLY in src/lib/emergency.ts.
+const EMERGENCY_SIGNALS = [
+  /\b(can ?not|can'?t|cant)\s*(breath|brethe|brthing)|trouble\s*breathing|shortness\s*of\s*breath|choking/i,
+  /\b(chest|cheast|chst)\s*(pain|tightness|pressure)|\bheart\s*attack/i,
+  /\bbleeding\b[^.!?]{0,25}\b(won'?t|not)\s*stop|\bheavy\s*bleeding|\bvomiting\s*blood/i,
+  /\b(unconscious|unconcious|passed\s*out|fainted|not\s*waking)\b/i,
+  /\b(seizure|seziure|seisure|convulsion|having\s*fits)\b/i,
+  /\b(suicide|suiside|kill\s*myself|want\s*to\s*die|self\s*harm|khudkhushi|atmahatya)\b/i,
+  /\b(overdose|poisoned|snake\s*bite|scorpion\s*sting|zeher|zahar|saap|saanp)\b/i,
+  /\b(face\s*droop|slurred\s*speech|stroke|paralysis|lakwa)\b/i,
+  /सा[ँं]?स\s*(नहीं|नही)\s*(आ|ले)|सीने?\s*में\s*दर्द|बेहोश|दौरा\s*(पड़|आ)|खून\s*(बह|नहीं\s*रुक)/,
+  /ਸਾਹ\s*(ਨਹੀਂ|ਨਹੀ)\s*ਆ|ਛਾਤੀ\s*(ਵਿੱਚ|ਚ)\s*ਦਰਦ|ਬੇਹੋਸ਼|ਦੌਰਾ\s*(ਪੈ|ਪਿਆ)/,
+  /\b(newborn|baby|bachcha)\b[^.!?]{0,25}\b(not\s*breathing|blue|limp|lifeless)\b/i,
+];
+
+const EMERGENCY_REPLY = `⚠️ This might be an emergency. Please get help right now instead of reading more here.
+
+• Call 108 (ambulance) or 112 (all emergencies) — both are free and work 24/7.
+• If you can, ask someone nearby to take you to the nearest hospital emergency department. Please don't drive yourself.
+• Mental health crisis: call Tele-MANAS on 14416 (free, confidential).
+
+Hindi: अगर यह आपातकाल है, तो तुरंत 108 या 112 पर कॉल करें। खुद गाड़ी न चलाएँ।
+Punjabi: ਜੇ ਇਹ ਐਮਰਜੈਂਸੀ ਹੈ ਤਾਂ ਤੁਰੰਤ 108 ਜਾਂ 112 'ਤੇ ਕਾਲ ਕਰੋ। ਆਪਣੇ ਆਪ ਗੱਡੀ ਨਾ ਚਲਾਓ।
+
+I'm an AI helper, not an emergency service, and I can't call anyone for you. Once you or the person you're with is safe and has been seen by a doctor, come back and I'll explain things in plain words.`;
+
+function isEmergencySignal(message) {
+  const text = (message || "").toLowerCase();
+  return EMERGENCY_SIGNALS.some((re) => re.test(text));
+}
+
+// Caller identity for records that are not behind patient login yet. The client
+// sends a per-tab session id; direct API calls fall back to their own IP.
+function ownerKey(req) {
+  const header = req.headers["x-session-id"];
+  if (typeof header === "string" && header.length >= 8 && header.length <= 64) {
+    return header;
+  }
+  return `ip-${req.ip}`;
+}
+
 // POST /api/chat — Send a message, get AI response via server-side Gemini
 app.post("/api/chat", chatLimiter, validateBody(SendMessageSchema), async (req, res) => {
   try {
@@ -244,6 +305,19 @@ app.post("/api/chat", chatLimiter, validateBody(SendMessageSchema), async (req, 
         : `ip-${req.ip}`;
 
     let responseText;
+
+    // Emergency gate runs FIRST: no model call, no delay, fixed safe copy.
+    if (isEmergencySignal(message)) {
+      try {
+        await pool.query(
+          "INSERT INTO chat_messages (user_id, user_message, bot_response) VALUES (?, ?, ?)",
+          [ownerKey(req), message, EMERGENCY_REPLY]
+        );
+      } catch (dbErr) {
+        console.error("Failed to store emergency message:", dbErr.message);
+      }
+      return res.json({ response: EMERGENCY_REPLY, emergency: true });
+    }
 
     // Hard off-topic gate — recipes/games/coding etc. never reach Gemini
     if (isOffTopicChecked(message)) {
@@ -281,11 +355,11 @@ app.post("/api/chat", chatLimiter, validateBody(SendMessageSchema), async (req, 
       responseText = getFallbackResponse(message);
     }
 
-    // Store in MySQL
+    // Store in MySQL, scoped to the caller's session
     try {
       await pool.query(
-        "INSERT INTO chat_messages (user_message, bot_response) VALUES (?, ?)",
-        [message, responseText]
+        "INSERT INTO chat_messages (user_id, user_message, bot_response) VALUES (?, ?, ?)",
+        [ownerKey(req), message, responseText]
       );
     } catch (dbErr) {
       console.error("Failed to store chat message:", dbErr.message);
@@ -310,10 +384,15 @@ app.get("/api/admin/verify", requireAdmin, (req, res) => {
 app.get("/api/chat/history", validateQuery(ChatHistoryQuerySchema), async (req, res) => {
   try {
     const { limit } = req.validatedQuery;
-    const [rows] = await pool.query(
-      "SELECT * FROM chat_messages ORDER BY created_at DESC LIMIT ?",
-      [limit]
-    );
+    // Chat messages are health data. Without this filter any caller could read
+    // every user's conversation. Admin sees all; everyone else sees their own.
+    const isAdmin = adminKeyMatch(req.headers["x-admin-key"]);
+    const [rows] = isAdmin
+      ? await pool.query("SELECT * FROM chat_messages ORDER BY created_at DESC LIMIT ?", [limit])
+      : await pool.query(
+          "SELECT * FROM chat_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
+          [ownerKey(req), limit]
+        );
     res.json(rows.reverse());
   } catch (error) {
     console.error("Chat history error:", error.message);
@@ -326,8 +405,11 @@ app.get("/api/chat/history", validateQuery(ChatHistoryQuerySchema), async (req, 
 // GET /api/vaccinations — List all vaccination records
 app.get("/api/vaccinations", async (req, res) => {
   try {
+    // Scoped to the caller. A shared table listing every patient's vaccination
+    // history is a health-data leak, not a feature.
     const [rows] = await pool.query(
-      "SELECT * FROM vaccination_records ORDER BY scheduled_date ASC"
+      "SELECT * FROM vaccination_records WHERE user_id = ? ORDER BY scheduled_date ASC",
+      [ownerKey(req)]
     );
     res.json(rows);
   } catch (error) {
@@ -343,10 +425,11 @@ app.post("/api/vaccinations", vaccinationWriteLimiter, validateBody(CreateVaccin
     const recordId = data.id || crypto.randomUUID();
 
     await pool.query(
-      `INSERT INTO vaccination_records (id, vaccine_name, scheduled_date, date_administered, status, notes)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO vaccination_records (id, user_id, vaccine_name, scheduled_date, date_administered, status, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         recordId,
+        ownerKey(req),
         data.vaccine_name,
         data.scheduled_date || null,
         data.date_administered || null,
@@ -355,7 +438,10 @@ app.post("/api/vaccinations", vaccinationWriteLimiter, validateBody(CreateVaccin
       ]
     );
 
-    const [rows] = await pool.query("SELECT * FROM vaccination_records WHERE id = ?", [recordId]);
+    const [rows] = await pool.query(
+      "SELECT * FROM vaccination_records WHERE id = ? AND user_id = ?",
+      [recordId, ownerKey(req)]
+    );
     res.status(201).json(rows[0]);
   } catch (error) {
     console.error("Vaccination create error:", error.message);
@@ -390,13 +476,16 @@ app.patch(
         values.push(data.notes);
       }
 
-      values.push(id);
+      values.push(id, ownerKey(req));
       await pool.query(
-        `UPDATE vaccination_records SET ${fields.join(", ")} WHERE id = ?`,
+        `UPDATE vaccination_records SET ${fields.join(", ")} WHERE id = ? AND user_id = ?`,
         values
       );
 
-      const [rows] = await pool.query("SELECT * FROM vaccination_records WHERE id = ?", [id]);
+      const [rows] = await pool.query(
+        "SELECT * FROM vaccination_records WHERE id = ? AND user_id = ?",
+        [id, ownerKey(req)]
+      );
       if (rows.length === 0) {
         return res.status(404).json({ error: "Record not found" });
       }
@@ -416,7 +505,10 @@ app.delete(
   async (req, res) => {
     try {
       const { id } = req.validatedParams;
-      const [result] = await pool.query("DELETE FROM vaccination_records WHERE id = ?", [id]);
+      const [result] = await pool.query(
+        "DELETE FROM vaccination_records WHERE id = ? AND user_id = ?",
+        [id, ownerKey(req)]
+      );
 
       if (result.affectedRows === 0) {
         return res.status(404).json({ error: "Record not found" });
@@ -750,7 +842,7 @@ GOOD reply to "I have fever, what should I do?":
 1. Get some rest — your body needs it
 2. Drink plenty of water so you don't get dehydrated
 3. Keep it light — soup, rice, fruit stuff like that
-4. If it gets really bad, take paracetamol
+4. If it feels really bad, call a doctor — I won't guess at doses
 
 But heads up — go see a doctor if:
 - It sticks around for more than 3 days
@@ -773,32 +865,46 @@ Rules:
 - Always tell them to see a doctor for serious stuff
 - Never give strong medicines or prescriptions
 - Never say what disease someone has — you're a buddy, not a doctor
-- If someone has an emergency (trouble breathing, chest pain, very high fever), tell them to get help RIGHT NOW
+- If someone seems to be having an emergency, stop and tell them to get help RIGHT NOW: call 108 (ambulance) or 112 (all emergencies). Don't give first-aid steps that could delay that call
+- Never give a dose, a number of tablets, or injection instructions. Never tell someone to start, stop or change a prescribed medicine
 - If you don't know something, just say: "Hmm, I'm not sure about that one — better ask a doctor"
 - Use facts from WHO, CDC, and trusted health sources
 - NEVER use emojis — keep it clean text only`;
 
+// Fixed text a worried person may trust, so it carries no doses, no diagnosis
+// and no clinical thresholds — only where to get a human.
+const SAFETY_FOOTER =
+  "\n\nIf this is urgent, don't wait for me — call 108 (ambulance) or 112 (all emergencies).";
+
 const FALLBACK_RESPONSES = {
   default: {
-    en: "Hey, I'm having a connection issue right now. Hang tight!\n\nHere's what you can do:\n\n1. Try sending your message again in a few seconds\n2. If it's urgent, give a health helpline a call\n3. In the meantime: drink water, eat well, and keep your vaccines up to date",
+    en:
+      "I can't reach my health knowledge base right now, so I'd rather not guess.\n\nPlease don't treat this as advice — talk to a doctor, nurse or your local health worker if the problem continues." +
+      SAFETY_FOOTER,
   },
   symptoms: {
-    en: "Got fever, cough, or body pain? Here's what to do:\n\n1. Rest up — your body needs the energy\n2. Drink plenty of water so you don't get dry\n3. Keep an eye on your temperature\n\nBut go see a doctor if:\n- It's been more than 3 days\n- You're having trouble breathing\n- Your chest hurts\n- Fever goes above 103 F",
+    en:
+      "I can't reach my health knowledge base right now, so I won't guess at what's going on or how to treat it.\n\nWhat usually helps while you wait for real advice:\n\n1. Rest, and drink water regularly\n2. Eat something light if you can\n3. Write down when it started and what changed, so a doctor can see the pattern\n\nPlease see a doctor or ASHA worker rather than relying on me for this one." +
+      SAFETY_FOOTER,
   },
   vaccination: {
-    en: "Vaccines are honestly the best way to stay healthy.\n\nHere's the easy version:\n1. Look up your country's vaccine schedule online\n2. Hit up your nearest health center\n3. Ask what shots are due for you or your family\n4. Get them done — most are free at government centers",
+    en:
+      "I can't reach my vaccine reference data right now, so I won't repeat a schedule from memory — getting a dose or timing wrong is not worth the risk.\n\n1. Government centres give routine childhood vaccines free of cost\n2. Ask your nearest health worker or centre what is due for you or your family\n3. Bring the child's immunisation card if you have one\n\nThe Vaccinations page in this app still has the reference schedule to look at." +
+      SAFETY_FOOTER,
   },
 };
 
 function getFallbackResponse(message) {
   const lower = (message || "").toLowerCase();
+  // Return the string, not the { en: ... } wrapper — the caller puts this straight
+  // into the JSON response body.
   if (lower.includes("symptom") || lower.includes("fever") || lower.includes("cough") || lower.includes("temperature") || lower.includes("pain") || lower.includes("hurt")) {
-    return FALLBACK_RESPONSES.symptoms;
+    return FALLBACK_RESPONSES.symptoms.en;
   }
   if (lower.includes("vaccine") || lower.includes("vaccination") || lower.includes("immuniz") || lower.includes("shot")) {
-    return FALLBACK_RESPONSES.vaccination;
+    return FALLBACK_RESPONSES.vaccination.en;
   }
-  return FALLBACK_RESPONSES.default;
+  return FALLBACK_RESPONSES.default.en;
 }
 
 // ─── Global Error Handler ─────────────────────────────────────

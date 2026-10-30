@@ -29,7 +29,7 @@ HealthBot is a comprehensive health platform designed to provide reliable, AI-dr
 *   **Frontend**: [React](https://react.dev/) (v18) with [Vite](https://vitejs.dev/)
 *   **Language**: [TypeScript](https://www.typescriptlang.org/)
 *   **Styling**: [Tailwind CSS](https://tailwindcss.com/) & [Shadcn UI](https://ui.shadcn.com/)
-*   **Backend**: [Supabase](https://supabase.com/) (PostgreSQL Database, Authentication)
+*   **Backend**: Express (Node.js) API with MySQL — the single source of truth for chat history, vaccination records, patient profiles and hospital data
 *   **AI**: [Google Generative AI SDK](https://www.npmjs.com/package/@google/generative-ai)
 
 ---
@@ -44,13 +44,11 @@ health/
 │   │   ├── landing/        # Landing page sections
 │   │   └── ui/             # Shadcn UI primitives (Button, Card, etc.)
 │   ├── hooks/              # Custom React hooks
-│   │   └── useHealthChat.ts # Main chat logic (AI & Supabase integration)
+│   │   └── useHealthChat.ts # Main chat logic (API + emergency short-circuit)
 │   ├── pages/              # Page components
 │   │   ├── Index.tsx       # Home/Landing Page
 │   │   └── Chat.tsx        # Dedicated Chat Page
-│   ├── integrations/       # Backend connections (Supabase client)
 │   └── App.tsx             # Main router configuration
-├── supabase/               # SQL migrations and config
 └── public/                 # Static assets
 ```
 
@@ -63,13 +61,20 @@ health/
     npm install
     ```
 
-2.  **Environment Setup**:
-    Create a `.env` file in the root directory with:
+2.  **Environment Setup** — the Gemini key stays on the server:
     ```env
-    VITE_SUPABASE_URL="your_supabase_url"
-    VITE_SUPABASE_PUBLISHABLE_KEY="your_supabase_key"
-    VITE_GEMINI_API_KEY="your_gemini_api_key"
+    # .env (frontend)
+    VITE_API_URL=http://localhost:3001
+
+    # server/.env
+    GEMINI_API_KEY="your_gemini_api_key"
+    PATIENT_JWT_SECRET="32+ random characters"
+    DB_HOST=localhost
+    DB_USER=root
+    DB_PASSWORD="your_password"
+    DB_NAME=healthbot
     ```
+    Never put a key in a `VITE_` variable — those are compiled into the browser bundle.
 
 3.  **Run Development Server**:
     ```bash

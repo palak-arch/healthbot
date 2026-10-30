@@ -10,6 +10,9 @@ const HealthCenters = lazy(() => import("@/pages/HealthCenters"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const Diseases = lazy(() => import("@/pages/Diseases"));
 const Patient = lazy(() => import("@/pages/Patient"));
+const Privacy = lazy(() => import("@/pages/Legal").then((m) => ({ default: m.Privacy })));
+const Terms = lazy(() => import("@/pages/Legal").then((m) => ({ default: m.Terms })));
+const Disclaimer = lazy(() => import("@/pages/Legal").then((m) => ({ default: m.Disclaimer })));
 
 function LoadingSpinner() {
   return (
@@ -32,6 +35,9 @@ function App() {
             <Route path="/admin" element={<Admin />} />
             <Route path="/diseases" element={<Diseases />} />
             <Route path="/patient" element={<Patient />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/disclaimer" element={<Disclaimer />} />
           </Routes>
         </Suspense>
       </Router>

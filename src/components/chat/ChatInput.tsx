@@ -39,7 +39,7 @@ const ChatInput = ({ onSend, isLoading }: ChatInputProps) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-2 p-4 border-t bg-background">
+    <form onSubmit={handleSubmit} className="relative flex items-center gap-2 p-4 border-t bg-background">
       {isSupported && (
         <Button
           type="button"
@@ -68,6 +68,13 @@ const ChatInput = ({ onSend, isLoading }: ChatInputProps) => {
           <Send className="h-4 w-4" />
         )}
       </Button>
+
+      {isSupported && isListening && (
+        <p className="absolute -top-9 left-4 right-4 rounded-md border bg-background px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
+          Your browser's speech service is transcribing this audio. Some browsers send it
+          to their own vendor.
+        </p>
+      )}
     </form>
   );
 };
