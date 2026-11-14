@@ -270,9 +270,9 @@ const EMERGENCY_SIGNALS = [
 
 const EMERGENCY_REPLY = `⚠️ This might be an emergency. Please get help right now instead of reading more here.
 
-• Call 108 (ambulance) or 112 (all emergencies) — both are free and work 24/7.
-• If you can, ask someone nearby to take you to the nearest hospital emergency department. Please don't drive yourself.
-• Mental health crisis: call Tele-MANAS on 14416 (free, confidential).
+- **Call 108 (ambulance) or 112 (all emergencies)** — both are free and work 24/7.
+- If you can, ask someone nearby to take you to the nearest hospital emergency department. Please don't drive yourself.
+- Mental health crisis: call Tele-MANAS on 14416 (free, confidential).
 
 Hindi: अगर यह आपातकाल है, तो तुरंत 108 या 112 पर कॉल करें। खुद गाड़ी न चलाएँ।
 Punjabi: ਜੇ ਇਹ ਐਮਰਜੈਂਸੀ ਹੈ ਤਾਂ ਤੁਰੰਤ 108 ਜਾਂ 112 'ਤੇ ਕਾਲ ਕਰੋ। ਆਪਣੇ ਆਪ ਗੱਡੀ ਨਾ ਚਲਾਓ।
