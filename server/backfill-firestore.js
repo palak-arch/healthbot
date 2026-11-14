@@ -82,6 +82,15 @@ export function patientDoc(row) {
   };
 }
 
+export function chatMessageDoc(row) {
+  return {
+    user_id: row.user_id,
+    user_message: row.user_message,
+    bot_response: row.bot_response,
+    created_at: toIsoString(row.created_at),
+  };
+}
+
 // ─── Counting / writing helpers ───────────────────────────────
 
 function emptyStats() {
@@ -187,18 +196,47 @@ async function main() {
     }
   }
 
+  // ── Chat messages ──
+  const [chatRows] = await pool.query("SELECT * FROM chat_messages");
+  const chatStats = emptyStats();
+  chatStats.read = chatRows.length;
+
+  const chatCollection = db.collection("chat_messages");
+  const haveChat = overwrite ? new Set() : await existingIds(chatCollection);
+  const chatWrites = [];
+
+  for (const row of chatRows) {
+    // Rows written before history was scoped to a session have no owner.
+    if (!row.user_id) {
+      chatStats.skippedNoOwner += 1;
+      continue;
+    }
+    const id = String(row.id);
+    if (haveChat.has(id) && !overwrite) {
+      chatStats.skippedExisting += 1;
+      continue;
+    }
+    chatWrites.push({ ref: chatCollection.doc(id), data: chatMessageDoc(row) });
+  }
+
   if (dryRun) {
     console.log("\nDry run — planned writes:");
     console.log(`  vaccinations: ${vaccWrites.length}`);
     console.log(`  patient records: ${patientWrites.length}`);
-    console.log(`  skipped (already in Firestore): ${vaccStats.skippedExisting + patientStats.skippedExisting}`);
-    console.log(`  skipped (no user_id): ${vaccStats.skippedNoOwner + patientStats.skippedNoOwner}`);
+    console.log(`  chat messages: ${chatWrites.length}`);
+    console.log(
+      `  skipped (already in Firestore): ${vaccStats.skippedExisting + patientStats.skippedExisting + chatStats.skippedExisting}`
+    );
+    console.log(
+      `  skipped (no user_id): ${vaccStats.skippedNoOwner + patientStats.skippedNoOwner + chatStats.skippedNoOwner}`
+    );
     console.log("\nRe-run without --dry-run to write.");
     return;
   }
 
   await commitInBatches(db, vaccWrites, vaccStats);
   await commitInBatches(db, patientWrites, patientStats);
+  await commitInBatches(db, chatWrites, chatStats);
 
   // Verify against the source counts rather than trusting the write loop.
   const vaccInDb = await countDocs(vaccCollection);
@@ -206,6 +244,7 @@ async function main() {
   for (const userId of byOwner.keys()) {
     patientsInDb += await countDocs(db.collection("users").doc(userId).collection("patients"));
   }
+  const chatInDb = await countDocs(chatCollection);
 
   const report = (label, stats, source, destination) => {
     console.log(`\n${label}`);
@@ -218,10 +257,13 @@ async function main() {
 
   report("Vaccinations", vaccStats, vaccStats.read, vaccInDb);
   report("Patient records", patientStats, patientStats.read, patientsInDb);
+  report("Chat messages", chatStats, chatStats.read, chatInDb);
 
   const expectedVacc = vaccStats.read - vaccStats.skippedNoOwner;
   const expectedPatients = patientStats.read - patientStats.skippedNoOwner;
-  const ok = vaccInDb >= expectedVacc && patientsInDb >= expectedPatients;
+  const expectedChat = chatStats.read - chatStats.skippedNoOwner;
+  const ok =
+    vaccInDb >= expectedVacc && patientsInDb >= expectedPatients && chatInDb >= expectedChat;
 
   console.log(ok ? "\n✅ Counts match the source rows." : "\n⚠️ Firestore holds fewer documents than expected — re-run to finish.");
   if (!ok) process.exitCode = 1;

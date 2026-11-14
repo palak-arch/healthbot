@@ -302,6 +302,69 @@ export const patients = {
   },
 };
 
+// ─── Chat messages ────────────────────────────────────────────
+// Scoped by session id (admin sees everything). A top-level collection rather
+// than a per-session subcollection, because the admin endpoint reads across all
+// sessions and a collection-group query would need a hand-built index before it
+// worked at all.
+
+const CHAT_MESSAGES = "chat_messages";
+
+async function chatAddMysql(ownerId, userMessage, botResponse) {
+  await pool.query(
+    "INSERT INTO chat_messages (user_id, user_message, bot_response) VALUES (?, ?, ?)",
+    [ownerId, userMessage, botResponse]
+  );
+}
+
+async function chatAddFirestore(ownerId, userMessage, botResponse) {
+  await getFirestoreDb().collection(CHAT_MESSAGES).add({
+    user_id: ownerId,
+    user_message: userMessage,
+    bot_response: botResponse,
+    created_at: nowIso(),
+  });
+}
+
+async function chatHistoryMysql(ownerId, limit, all) {
+  const [rows] = all
+    ? await pool.query("SELECT * FROM chat_messages ORDER BY created_at DESC LIMIT ?", [limit])
+    : await pool.query(
+        "SELECT * FROM chat_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
+        [ownerId, limit]
+      );
+  // Newest first from SQL, oldest first for display.
+  return rows.reverse();
+}
+
+async function chatHistoryFirestore(ownerId, limit, all) {
+  const base = getFirestoreDb().collection(CHAT_MESSAGES);
+  const query = all
+    ? base.orderBy("created_at", "desc").limit(limit)
+    : base.where("user_id", "==", ownerId);
+
+  const snap = await query.get();
+  const rows = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+  // The owner-scoped query is filtered, not ordered, so sort in memory: adding an
+  // orderBy next to the where() would require a composite index to exist.
+  rows.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  return rows.slice(0, limit).reverse();
+}
+
+export const chatMessages = {
+  async add(ownerId, userMessage, botResponse) {
+    return isFirestoreConfigured()
+      ? chatAddFirestore(ownerId, userMessage, botResponse)
+      : chatAddMysql(ownerId, userMessage, botResponse);
+  },
+  async history({ ownerId, limit, all = false }) {
+    return isFirestoreConfigured()
+      ? chatHistoryFirestore(ownerId, limit, all)
+      : chatHistoryMysql(ownerId, limit, all);
+  },
+};
+
 /** Which store the routes are actually using — surfaced by /api/health. */
 export function storageBackend() {
   return isFirestoreConfigured() ? "firestore" : "mysql";

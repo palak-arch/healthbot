@@ -17,7 +17,7 @@ import { existsSync, readFileSync } from "fs";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import pool from "./db.js";
 import { initSchema } from "./init-db.js";
-import { patients, storageBackend, vaccinations } from "./data-layer.js";
+import { chatMessages, patients, storageBackend, vaccinations } from "./data-layer.js";
 import {
   validateBody,
   validateParams,
@@ -323,10 +323,7 @@ app.post("/api/chat", chatLimiter, validateBody(SendMessageSchema), async (req, 
     // Emergency gate runs FIRST: no model call, no delay, fixed safe copy.
     if (isEmergencySignal(message)) {
       try {
-        await pool.query(
-          "INSERT INTO chat_messages (user_id, user_message, bot_response) VALUES (?, ?, ?)",
-          [ownerKey(req), message, EMERGENCY_REPLY]
-        );
+        await chatMessages.add(ownerKey(req), message, EMERGENCY_REPLY);
       } catch (dbErr) {
         console.error("Failed to store emergency message:", dbErr.message);
       }
@@ -371,10 +368,7 @@ app.post("/api/chat", chatLimiter, validateBody(SendMessageSchema), async (req, 
 
     // Store in MySQL, scoped to the caller's session
     try {
-      await pool.query(
-        "INSERT INTO chat_messages (user_id, user_message, bot_response) VALUES (?, ?, ?)",
-        [ownerKey(req), message, responseText]
-      );
+      await chatMessages.add(ownerKey(req), message, responseText);
     } catch (dbErr) {
       console.error("Failed to store chat message:", dbErr.message);
     }
@@ -401,13 +395,7 @@ app.get("/api/chat/history", validateQuery(ChatHistoryQuerySchema), async (req, 
     // Chat messages are health data. Without this filter any caller could read
     // every user's conversation. Admin sees all; everyone else sees their own.
     const isAdmin = adminKeyMatch(req.headers["x-admin-key"]);
-    const [rows] = isAdmin
-      ? await pool.query("SELECT * FROM chat_messages ORDER BY created_at DESC LIMIT ?", [limit])
-      : await pool.query(
-          "SELECT * FROM chat_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
-          [ownerKey(req), limit]
-        );
-    res.json(rows.reverse());
+    res.json(await chatMessages.history({ ownerId: ownerKey(req), limit, all: isAdmin }));
   } catch (error) {
     console.error("Chat history error:", error.message);
     res.json([]);
