@@ -71,7 +71,18 @@ is the path. Ownership is still checked in code on every read. The server uses t
 Admin SDK, which bypasses security rules, so keep browser access denied in the rules —
 no client should read health data directly.
 
-Existing MySQL rows are **not** copied automatically; there is no backfill yet.
+Existing MySQL rows are **not** copied automatically. To copy them once Firestore is
+configured:
+
+```bash
+node server/backfill-firestore.js --dry-run   # report only, writes nothing
+node server/backfill-firestore.js             # write, skipping existing documents
+node server/backfill-firestore.js --overwrite # replace documents that already exist
+```
+
+It is safe to re-run: documents already in Firestore are skipped unless you pass
+`--overwrite`, and rows with a `NULL` user_id are reported and left behind because
+there is no safe owner to assign them to.
 
 ## 3. Install and run
 
