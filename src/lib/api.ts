@@ -116,6 +116,11 @@ export async function deleteVaccination(id: string): Promise<void> {
 
 // ─── Health Check ─────────────────────────────────────────────
 
-export async function checkHealth(): Promise<{ status: string; db: string }> {
+export async function checkHealth(): Promise<{
+  status: string;
+  db: string;
+  gemini: string;
+  uptimeSeconds: number;
+}> {
   return request("/api/health");
 }

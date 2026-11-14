@@ -182,13 +182,25 @@ app.use(express.json({ limit: "10kb" })); // Limit body size to prevent abuse
 app.use(globalLimiter);
 
 // ─── Health Check ─────────────────────────────────────────────
+// Deployment smoke check: a chat that silently falls back looks identical to a
+// broken one from the browser, so report the two causes — an unreachable
+// database or a missing Gemini key. Status words only, never a secret value.
+// Always 200: with the database down the app still serves emergency replies and
+// safe fallbacks, so a platform healthcheck shouldn't restart the container.
 app.get("/api/health", healthLimiter, async (req, res) => {
+  let db = "connected";
   try {
     await pool.query("SELECT 1");
-    res.json({ status: "ok", db: "connected" });
   } catch {
-    res.status(503).json({ status: "error", db: "disconnected" });
+    db = "disconnected";
   }
+  const gemini = process.env.GEMINI_API_KEY ? "configured" : "missing";
+  res.json({
+    status: db === "connected" && gemini === "configured" ? "ok" : "degraded",
+    db,
+    gemini,
+    uptimeSeconds: Math.round(process.uptime()),
+  });
 });
 
 // ─── Chat Routes ──────────────────────────────────────────────
