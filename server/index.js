@@ -17,6 +17,7 @@ import { existsSync, readFileSync } from "fs";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import pool from "./db.js";
 import { initSchema } from "./init-db.js";
+import { patients, storageBackend, vaccinations } from "./data-layer.js";
 import {
   validateBody,
   validateParams,
@@ -199,6 +200,7 @@ app.get("/api/health", healthLimiter, async (req, res) => {
     status: db === "connected" && gemini === "configured" ? "ok" : "degraded",
     db,
     gemini,
+    storage: storageBackend(),
     uptimeSeconds: Math.round(process.uptime()),
   });
 });
@@ -417,13 +419,9 @@ app.get("/api/chat/history", validateQuery(ChatHistoryQuerySchema), async (req, 
 // GET /api/vaccinations — List all vaccination records
 app.get("/api/vaccinations", async (req, res) => {
   try {
-    // Scoped to the caller. A shared table listing every patient's vaccination
+    // Scoped to the caller. A shared store listing every patient's vaccination
     // history is a health-data leak, not a feature.
-    const [rows] = await pool.query(
-      "SELECT * FROM vaccination_records WHERE user_id = ? ORDER BY scheduled_date ASC",
-      [ownerKey(req)]
-    );
-    res.json(rows);
+    res.json(await vaccinations.list(ownerKey(req)));
   } catch (error) {
     console.error("Vaccinations fetch error:", error.message);
     res.status(500).json({ error: "Failed to fetch records" });
@@ -434,27 +432,15 @@ app.get("/api/vaccinations", async (req, res) => {
 app.post("/api/vaccinations", vaccinationWriteLimiter, validateBody(CreateVaccinationSchema), async (req, res) => {
   try {
     const data = req.validatedBody; // Already sanitized by Zod
-    const recordId = data.id || crypto.randomUUID();
-
-    await pool.query(
-      `INSERT INTO vaccination_records (id, user_id, vaccine_name, scheduled_date, date_administered, status, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        recordId,
-        ownerKey(req),
-        data.vaccine_name,
-        data.scheduled_date || null,
-        data.date_administered || null,
-        data.status || "scheduled",
-        data.notes || null,
-      ]
-    );
-
-    const [rows] = await pool.query(
-      "SELECT * FROM vaccination_records WHERE id = ? AND user_id = ?",
-      [recordId, ownerKey(req)]
-    );
-    res.status(201).json(rows[0]);
+    const record = await vaccinations.create(ownerKey(req), {
+      id: data.id,
+      vaccine_name: data.vaccine_name,
+      scheduled_date: data.scheduled_date || null,
+      date_administered: data.date_administered || null,
+      status: data.status || "scheduled",
+      notes: data.notes || null,
+    });
+    res.status(201).json(record);
   } catch (error) {
     console.error("Vaccination create error:", error.message);
     res.status(500).json({ error: "Failed to create record" });
@@ -472,36 +458,15 @@ app.patch(
       const { id } = req.validatedParams;
       const data = req.validatedBody;
 
-      const fields = [];
-      const values = [];
-
-      if (data.status !== undefined) {
-        fields.push("status = ?");
-        values.push(data.status);
-      }
-      if (data.date_administered !== undefined) {
-        fields.push("date_administered = ?");
-        values.push(data.date_administered);
-      }
-      if (data.notes !== undefined) {
-        fields.push("notes = ?");
-        values.push(data.notes);
-      }
-
-      values.push(id, ownerKey(req));
-      await pool.query(
-        `UPDATE vaccination_records SET ${fields.join(", ")} WHERE id = ? AND user_id = ?`,
-        values
-      );
-
-      const [rows] = await pool.query(
-        "SELECT * FROM vaccination_records WHERE id = ? AND user_id = ?",
-        [id, ownerKey(req)]
-      );
-      if (rows.length === 0) {
+      const record = await vaccinations.update(ownerKey(req), id, {
+        status: data.status,
+        date_administered: data.date_administered,
+        notes: data.notes,
+      });
+      if (!record) {
         return res.status(404).json({ error: "Record not found" });
       }
-      res.json(rows[0]);
+      res.json(record);
     } catch (error) {
       console.error("Vaccination update error:", error.message);
       res.status(500).json({ error: "Failed to update record" });
@@ -517,12 +482,9 @@ app.delete(
   async (req, res) => {
     try {
       const { id } = req.validatedParams;
-      const [result] = await pool.query(
-        "DELETE FROM vaccination_records WHERE id = ? AND user_id = ?",
-        [id, ownerKey(req)]
-      );
+      const removed = await vaccinations.remove(ownerKey(req), id);
 
-      if (result.affectedRows === 0) {
+      if (!removed) {
         return res.status(404).json({ error: "Record not found" });
       }
       res.json({ success: true });
@@ -740,11 +702,7 @@ app.get("/api/auth/me", requirePatientAuth, (req, res) => {
 // GET /api/patients — list ONLY the logged-in user's profiles (newest first)
 app.get("/api/patients", requirePatientAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      "SELECT * FROM patient_records WHERE user_id = ? ORDER BY created_at DESC LIMIT 100",
-      [req.patientUser.id]
-    );
-    res.json(rows);
+    res.json(await patients.list(req.patientUser.id));
   } catch (error) {
     console.error("Patients fetch error:", error.message);
     res.status(500).json({ error: "Failed to fetch patient records" });
@@ -754,12 +712,9 @@ app.get("/api/patients", requirePatientAuth, async (req, res) => {
 // GET /api/patients/:id — get one of YOUR patient profiles
 app.get("/api/patients/:id", requirePatientAuth, validateParams(VaccinationIdParamSchema), async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      "SELECT * FROM patient_records WHERE id = ? AND user_id = ?",
-      [req.validatedParams.id, req.patientUser.id]
-    );
-    if (rows.length === 0) return res.status(404).json({ error: "Patient not found" });
-    res.json(rows[0]);
+    const record = await patients.get(req.patientUser.id, req.validatedParams.id);
+    if (!record) return res.status(404).json({ error: "Patient not found" });
+    res.json(record);
   } catch (error) {
     console.error("Patient fetch error:", error.message);
     res.status(500).json({ error: "Failed to fetch patient record" });
@@ -771,32 +726,8 @@ app.post("/api/patients", requirePatientAuth, vaccinationWriteLimiter, validateB
   try {
     const b = req.validatedBody;
     const id = b.id || crypto.randomUUID();
-    await pool.query(
-      `INSERT INTO patient_records
-       (id, user_id, full_name, age, gender, blood_group, phone, conditions, medications, allergies, emergency_contact, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE
-         full_name=VALUES(full_name), age=VALUES(age), gender=VALUES(gender),
-         blood_group=VALUES(blood_group), phone=VALUES(phone), conditions=VALUES(conditions),
-         medications=VALUES(medications), allergies=VALUES(allergies),
-         emergency_contact=VALUES(emergency_contact), notes=VALUES(notes), updated_at=NOW()`,
-      [
-        id,
-        req.patientUser.id,
-        b.fullName,
-        b.age,
-        b.gender || null,
-        b.bloodGroup || null,
-        b.phone || null,
-        JSON.stringify(b.conditions || []),
-        JSON.stringify(b.medications || []),
-        JSON.stringify(b.allergies || []),
-        b.emergencyContact || null,
-        b.notes || null,
-      ]
-    );
-    const [rows] = await pool.query("SELECT * FROM patient_records WHERE id = ?", [id]);
-    res.status(201).json(rows[0]);
+    const record = await patients.upsert(req.patientUser.id, id, b);
+    res.status(201).json(record);
   } catch (error) {
     console.error("Patient create error:", error.message);
     res.status(500).json({ error: "Failed to save patient record" });
@@ -806,11 +737,8 @@ app.post("/api/patients", requirePatientAuth, vaccinationWriteLimiter, validateB
 // DELETE /api/patients/:id — remove YOUR OWN patient profile
 app.delete("/api/patients/:id", requirePatientAuth, vaccinationWriteLimiter, validateParams(VaccinationIdParamSchema), async (req, res) => {
   try {
-    const [result] = await pool.query(
-      "DELETE FROM patient_records WHERE id = ? AND user_id = ?",
-      [req.validatedParams.id, req.patientUser.id]
-    );
-    if (result.affectedRows === 0) {
+    const removed = await patients.remove(req.patientUser.id, req.validatedParams.id);
+    if (!removed) {
       return res.status(404).json({ error: "Patient not found" });
     }
     res.json({ success: true });

@@ -47,6 +47,32 @@ NODE_ENV=production   # on a deployed server
 `PATIENT_JWT_SECRET` is required in production: the server refuses to start without a
 32+ character secret rather than fall back to a guessable default.
 
+### Storage backend
+
+Vaccination records and patient profiles go through `server/data-layer.js`, which has a
+MySQL implementation and a Firestore one. Which one is used depends only on
+configuration:
+
+```
+FIREBASE_SERVICE_ACCOUNT='{"type":"service_account", ...}'   # whole key file, one line
+# or
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+```
+
+With neither set, everything uses MySQL exactly as before. With one set, those two
+collections move to Firestore; chat, hospitals and patient logins stay on MySQL until
+they are migrated too. `GET /api/health` reports `"storage": "mysql"` or
+`"storage": "firestore"` so it is obvious which store is live — and a misconfigured
+key fails loudly in the log rather than silently writing to the other database.
+
+Firestore layout: `vaccination_records/{id}` with a `user_id` field (vaccinations are
+scoped by chat session, not by login), and `users/{uid}/patients/{id}` where ownership
+is the path. Ownership is still checked in code on every read. The server uses the
+Admin SDK, which bypasses security rules, so keep browser access denied in the rules —
+no client should read health data directly.
+
+Existing MySQL rows are **not** copied automatically; there is no backfill yet.
+
 ## 3. Install and run
 
 ```bash
